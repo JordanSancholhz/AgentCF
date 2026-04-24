@@ -265,8 +265,3 @@ LONG_MEMORY_LOG_ROOT = "log_long_eval"
 
 # ============= 属性级别监督配置 =============
 ENABLE_ATTRIBUTE_GUIDANCE = True  # 是否启用属性级别引导
-ATTRIBUTE_DIMENSIONS = [
-    "style", "material", "price", "genre",
-    "functionality", "brand", "color", "quality"
-]  # 属性维度，可根据数据集调整
-ATTRIBUTE_POLARITY = ["positive", "negative"]  # 属性极性
