@@ -1,5 +1,3 @@
-from config import ATTRIBUTE_DIMENSIONS
-
 def user_prompt_system_role(user_description):
     return f"You are an Amazon buyer.\n Here is your previous self-introduction, exhibiting your past preferences and dislikes:\n '{user_description}'."
 # 1
