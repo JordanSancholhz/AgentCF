@@ -452,19 +452,16 @@ def process_stm_and_update_memory(userId, extracted_attrs, new_self_intro):
 ### 2.2 辅助函数
 
 def update_current_memory(userId, new_self_intro):
-    """
-    更新当前记忆（快速响应）
-    """
-    from config import MEMORY_BASE_DIR
-    import os
+    """更新用户记忆"""
+    responseText = new_self_intro.split("My updated self-introduction:")[-1].strip()
 
-    user_file = f"{MEMORY_BASE_DIR}/user/user.{userId}"
-    os.makedirs(os.path.dirname(user_file), exist_ok=True)
+    # ✅ 使用config中的路径
+    with open(f"{MEMORY_BASE_DIR}/user/user.{userId}", "w", encoding="utf-8") as file:
+        file.write(responseText)
 
-    with open(user_file, 'w', encoding='utf-8') as f:
-        f.write(new_self_intro)
-
-    print(f"✅ [Current] User {userId} current memory updated")
+    with open(f"{MEMORY_BASE_DIR}/user-long/user.{userId}", "a", encoding="utf-8") as file:
+        file.write("\n=====\n")
+        file.write(responseText)
 
 
 def update_ltm_memory(userId, new_self_intro):
