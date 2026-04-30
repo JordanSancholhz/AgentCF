@@ -1,3 +1,4 @@
+
 def user_prompt_system_role(user_description):
     return f"You are an Amazon buyer.\n Here is your previous self-introduction, exhibiting your past preferences and dislikes:\n '{user_description}'."
 # 1
@@ -111,7 +112,7 @@ LONG_MEMORY_PROMPTS = {
 
 
 
-# 添加
+# 添加创新点1
 # ============= 属性级别监督 Prompts =============
 
 # 属性维度定义（建议放在 config 中）
@@ -269,3 +270,185 @@ def item_prompt_template_true_with_attr(user_description, list_of_item_descripti
  3. In your updated descriptions, refer to preferences collectively.
  4. New features should reflect user preferences, and the updated descriptions must not contradict the inherent characteristics of the items."""
 
+
+
+
+
+
+
+
+# 创新点二---------------------------------------------------------------------------------------------------------------------------------
+# ============================================================================
+# Function 1: user_prompt_template (incorrect choice) - UPDATED VERSION
+# ============================================================================
+def user_prompt_template_with_attr_ltm(list_of_item_description, pos_item_title,
+                                       neg_item_title, system_reason,
+                                       attribute_dimensions, ltm_memory=None, stm_memory=None):
+    """
+    用户prompt - 选择错误 - 包含属性分析 + LTM + STM
+    """
+    ltm_hint = ""
+    if ltm_memory:
+        ltm_hint = f"\n\nNote: Your core long-term preferences (from all previous rounds) are: '{ltm_memory}'."
+
+    stm_hint = ""
+    if stm_memory:
+        stm_hint = f"\n\nRecent trends: In the last two rounds, you showed preferences for: '{stm_memory}'."
+
+    return f"""Recently, you considered choosing one item from two candidates. The features of these items are:
+{list_of_item_description}.
+
+After comparing based on your preferences, you chose '{neg_item_title}' and rejected the other. Your explanation was:
+'{system_reason}'.
+
+However, after encountering these items, you realized you prefer '{pos_item_title}' and don't like '{neg_item_title}'.
+This indicates an incorrect choice, and your previous judgment about your preferences was mistaken. Your task now is to extract the attribute-level rationale for this correction and update your self-introduction.{ltm_hint}{stm_hint}
+
+Follow these steps:
+1. Attribute Analysis (Silver Rationale): From these dimensions ({attribute_dimensions}), identify 1 to 3 key attributes that caused this misconception. For each, specify which item has the trait, its polarity (positive/negative to your true preference), and its importance score (1-5).
+2. Consider your long-term stable preferences (if provided) and recent trends (if provided) when analyzing.
+3. Analyze misconceptions in your previous judgment and correct them based on step 1 and 2.
+4. Identify new preferences from '{pos_item_title}' and dislikes from '{neg_item_title}'.
+5. Summarize your past preferences, merging them with new insights and removing conflicting parts.
+6. Update your self-introduction, starting with new preferences, then summarizing past ones, followed by dislikes.
+
+Important notes:
+1. Your output format MUST strictly follow this structure:
+Attribute Rationale:
+- [attribute_1]: [item_name] | [positive/negative] | [score 1-5]
+- [attribute_2]: [item_name] | [positive/negative] | [score 1-5]
+My updated self-introduction: [Your updated self-introduction here].
+2. Keep the self-introduction under 150 words.
+3. Be concise and clear.
+4. Describe only the features of items you prefer or dislike, without mentioning your thought process in the self-introduction.
+5. Your self-introduction should be specific and personalized; avoid generic preferences."""
+
+
+def user_prompt_template_true_with_attr_ltm(list_of_item_description, pos_item_title,
+                                            neg_item_title, system_reason,
+                                            attribute_dimensions, ltm_memory=None, stm_memory=None):
+    """
+    用户prompt - 选择正确 - 包含属性分析 + LTM + STM
+    """
+    ltm_hint = ""
+    if ltm_memory:
+        ltm_hint = f"\n\nNote: Your core long-term preferences (from all previous rounds) are: '{ltm_memory}'."
+
+    stm_hint = ""
+    if stm_memory:
+        stm_hint = f"\n\nRecent trends: In the last two rounds, you showed preferences for: '{stm_memory}'."
+
+    return f"""Recently, you considered choosing one item from two candidates. The features of these items are:
+{list_of_item_description}.
+
+After comparing based on your preferences, you selected '{pos_item_title}' and rejected the other. Your explanation was:
+'{system_reason}'.
+
+After encountering these items, you found that you really like '{pos_item_title}' and dislike '{neg_item_title}'.
+This indicates you made a correct choice, and your judgment about your preferences was accurate.
+Your task now is to extract the attribute-level rationale confirming your choice and update your self-introduction.{ltm_hint}{stm_hint}
+
+Please follow these steps:
+1. Attribute Analysis (Silver Rationale): From these dimensions ({attribute_dimensions}), identify 1 to 3 key attributes that drove this successful match. For each, specify which item has the trait, its polarity (positive/negative to your preference), and its importance score (1-5).
+2. Consider your long-term stable preferences (if provided) and recent trends (if provided) when analyzing.
+3. Analyze your judgment about your preferences and dislikes from your explanation based on step 1 and 2.
+4. Identify new preferences based on '{pos_item_title}' and dislikes based on '{neg_item_title}'.
+5. Summarize your past preferences and dislikes from your previous self-introduction, combining them with new insights while removing conflicting parts.
+6. Update your self-introduction, starting with your new preferences, then summarizing past ones, followed by your dislikes.
+
+Important notes:
+1. Your output format MUST strictly follow this structure:
+Attribute Rationale:
+- [attribute_1]: [item_name] | [positive/negative] | [score 1-5]
+- [attribute_2]: [item_name] | [positive/negative] | [score 1-5]
+My updated self-introduction: [Your updated self-introduction here].
+2. Keep the self-introduction under 150 words.
+3. Be concise and clear.
+4. Describe only the features of items you prefer or dislike, without mentioning your thought process in the self-introduction.
+5. Your self-introduction should be specific and personalized; avoid generic preferences."""
+
+
+def item_prompt_template_with_attr_ltm(user_description, list_of_item_description,
+                                       pos_item_title, neg_item_title, system_reason,
+                                       attribute_dimensions, ltm_memory=None, stm_memory=None):
+    """
+    物品prompt - 选择错误 - 包含属性分析 + LTM + STM
+    """
+    ltm_hint = ""
+    if ltm_memory:
+        ltm_hint = f" The user's core long-term preferences are: '{ltm_memory}'."
+
+    stm_hint = ""
+    if stm_memory:
+        stm_hint = f" Recent trends: '{stm_memory}'."
+
+    return f"""You are an item description updater. A user with the following preferences interacted with two items:
+User preferences: {user_description}.{ltm_hint}{stm_hint}
+
+Items:
+{list_of_item_description}
+
+The user initially chose '{neg_item_title}' over '{pos_item_title}', reasoning: '{system_reason}'.
+However, after experiencing both items, the user realized they actually prefer '{pos_item_title}' and dislike '{neg_item_title}'.
+
+Your task is to update the descriptions of both items to better reflect the user's true preferences, considering:
+1. The attribute-level analysis from these dimensions: {attribute_dimensions}
+2. The user's long-term stable preferences (if provided)
+3. The user's recent preference trends (if provided)
+
+Please follow these steps:
+1. Attribute Analysis: Identify 1-3 key attributes from ({attribute_dimensions}) that explain why the user prefers '{pos_item_title}'. For each attribute, specify which item has it, its polarity (positive/negative), and importance score (1-5).
+2. For '{pos_item_title}': Emphasize features that align with the user's true preferences (both long-term and recent trends).
+3. For '{neg_item_title}': Highlight aspects that conflict with the user's preferences.
+4. Keep descriptions concise and focused on attributes relevant to this user.
+
+Output format:
+Attribute Rationale:
+- [attribute_1]: [item_name] | [positive/negative] | [score 1-5]
+- [attribute_2]: [item_name] | [positive/negative] | [score 1-5]
+
+Updated description for '{pos_item_title}': [description]
+Updated description for '{neg_item_title}': [description]"""
+
+
+def item_prompt_template_true_with_attr_ltm(user_description, list_of_item_description,
+                                            pos_item_title, neg_item_title,
+                                            attribute_dimensions, ltm_memory=None, stm_memory=None):
+    """
+    物品prompt - 选择正确 - 包含属性分析 + LTM + STM
+    """
+    ltm_hint = ""
+    if ltm_memory:
+        ltm_hint = f" The user's core long-term preferences are: '{ltm_memory}'."
+
+    stm_hint = ""
+    if stm_memory:
+        stm_hint = f" Recent trends: '{stm_memory}'."
+
+    return f"""You are an item description updater. A user with the following preferences interacted with two items:
+User preferences: {user_description}.{ltm_hint}{stm_hint}
+
+Items:
+{list_of_item_description}
+
+The user chose '{pos_item_title}' over '{neg_item_title}', and after experiencing both items, confirmed this was the right choice.
+They really like '{pos_item_title}' and dislike '{neg_item_title}'.
+
+Your task is to update the descriptions of both items to better reflect the user's preferences, considering:
+1. The attribute-level analysis from these dimensions: {attribute_dimensions}
+2. The user's long-term stable preferences (if provided)
+3. The user's recent preference trends (if provided)
+
+Please follow these steps:
+1. Attribute Analysis: Identify 1-3 key attributes from ({attribute_dimensions}) that explain why the user prefers '{pos_item_title}'. For each attribute, specify which item has it, its polarity (positive/negative), and importance score (1-5).
+2. For '{pos_item_title}': Emphasize features that align with the user's preferences (both long-term and recent trends).
+3. For '{neg_item_title}': Highlight aspects that the user dislikes.
+4. Keep descriptions concise and focused on attributes relevant to this user.
+
+Output format:
+Attribute Rationale:
+- [attribute_1]: [item_name] | [positive/negative] | [score 1-5]
+- [attribute_2]: [item_name] | [positive/negative] | [score 1-5]
+
+Updated description for '{pos_item_title}': [description]
+Updated description for '{neg_item_title}': [description]"""
