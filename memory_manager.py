@@ -77,7 +77,7 @@ def parse_attribute_rationale(response_text):
 #             stm["attributes"][dim]["evidence_items"].append(detail.get("item_name"))
 #
 #     # 4. 固化判断（属性出现3次以上固化到LTM）
-#     LTM_THRESHOLD = 2
+#     LTM_THRESHOLD = 3
 #     verified_dims = [dim for dim, data in stm["attributes"].items()
 #                      if data["count"] >= LTM_THRESHOLD]
 #
