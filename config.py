@@ -263,5 +263,20 @@ LONG_MEMORY_LOG_ROOT = "log_long_eval"
 # "Cell_Phones", "Fashion"
 
 
-# ============= 属性级别监督配置 =============
+# ============= 属性级别监督配置 =============创新点1
 ENABLE_ATTRIBUTE_GUIDANCE = True  # 是否启用属性级别引导
+ENABLE_SEPARATE_LTM = True
+# ATTRIBUTE_DIMENSIONS = [
+#     "style", "material", "price", "genre",
+#     "functionality", "brand", "color", "quality"
+# ]  # 属性维度，可根据数据集调整
+# ATTRIBUTE_POLARITY = ["positive", "negative"]  # 属性极性
+
+
+# ========== UAMG 门控配置（创新点2）==========
+ENABLE_MEMORY_GATING = True  # 是否启用记忆门控
+GATING_BASE_THRESHOLD = 0.5  # 基础阈值（会自适应调整）
+GATING_EARLY_THRESHOLD = 0.7  # 早期阈值（前20次交互）
+GATING_LATE_THRESHOLD = 0.3   # 后期阈值（50次交互后）
+GATING_TRANSITION_START = 20  # 开始收紧的交互次数
+GATING_TRANSITION_END = 50    # 完全收紧的交互次数
