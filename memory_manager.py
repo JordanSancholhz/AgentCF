@@ -77,7 +77,7 @@ def parse_attribute_rationale(response_text):
 #             stm["attributes"][dim]["evidence_items"].append(detail.get("item_name"))
 #
 #     # 4. 固化判断（属性出现3次以上固化到LTM）
-#     LTM_THRESHOLD = 3
+#     LTM_THRESHOLD = 2
 #     verified_dims = [dim for dim, data in stm["attributes"].items()
 #                      if data["count"] >= LTM_THRESHOLD]
 #
@@ -101,52 +101,42 @@ def parse_attribute_rationale(response_text):
 #     return decision_tag
 
 
-def update_user_memory_from_ltm(userId, new_self_intro):
+def load_stm_attributes(userId, rounds=[2, 3]):
     """
-    固化到长期记忆文件
-    """
-    from config import MEMORY_BASE_DIR
-
-    user_file = f"{MEMORY_BASE_DIR}/user/user.{userId}"
-
-    # 直接写入新的自我介绍
-    with open(user_file, 'w', encoding='utf-8') as f:
-        f.write(new_self_intro)
-
-    print(f"✅ [LTM] User {userId} memory updated")
-
-
-def load_stm_memory(userId, rounds=[2, 3]):
-    """
-    加载指定轮次的记忆摘要（用于prompt提示）
+    加载指定轮次的属性提取结果（用于prompt提示）
 
     参数:
     - userId: 用户ID
     - rounds: 要加载的轮次列表，默认[2, 3]表示Round 2和Round 3
 
-    返回: 字符串，包含这些轮次的偏好摘要
+    返回: 列表，包含这些轮次的属性
     """
     from config import MEMORY_BASE_DIR
     import os
+    import json
 
-    stm_summaries = []
+    history_file = f"{MEMORY_BASE_DIR}/stm_history/user_{userId}.json"
 
-    for round_num in rounds:
-        # 尝试加载该轮次的记忆快照
-        round_path = f"{MEMORY_BASE_DIR}/round_{round_num + 1}/user/user.{userId}"
-
-        if os.path.exists(round_path):
-            with open(round_path, 'r', encoding='utf-8') as f:
-                memory = f.read().strip()
-                # 提取关键偏好（可以简化或截取前100字）
-                summary = memory[:100] + "..." if len(memory) > 100 else memory
-                stm_summaries.append(f"Round {round_num + 1}: {summary}")
-
-    if stm_summaries:
-        return " | ".join(stm_summaries)
-    else:
+    if not os.path.exists(history_file):
         return None
 
+    # 加载History
+    with open(history_file, 'r', encoding='utf-8') as f:
+        history_data = json.load(f)
+
+    stm_attributes = []
+
+    for round_num in rounds:
+        # 从history中找到对应轮次的属性
+        for entry in history_data["history"]:
+            if entry["round"] == round_num:
+                stm_attributes.append({
+                    "round": round_num + 1,  # 转换为1-based显示
+                    "attributes": entry["extracted_attrs"]
+                })
+                break
+
+    return stm_attributes if stm_attributes else None
 
 def compute_stm_score_two_rounds(current_attrs, round_2_attrs, round_3_attrs):
     """
@@ -172,12 +162,6 @@ def compute_stm_score_two_rounds(current_attrs, round_2_attrs, round_3_attrs):
     stm_score = 0.6 * score_round_3 + 0.4 * score_round_2
 
     return stm_score
-
-
-
-
-
-
 
 def compute_stm_score(current_attrs, previous_attrs):
     """
@@ -325,22 +309,31 @@ def evaluate_memory_gate(userId, round_num, current_attrs, is_choice_right):
 
     # 2. Round 4: 启用长短记忆门控
     elif round_num == 4:
-        # 加载STM历史
-        stm_file = f"{MEMORY_BASE_DIR}/stm/user_{userId}.json"
+        # 加载History（从stm_history而不是stm）
+        history_file = f"{MEMORY_BASE_DIR}/stm_history/user_{userId}.json"
 
-        if os.path.exists(stm_file):
-            with open(stm_file, 'r', encoding='utf-8') as f:
-                stm = json.load(f)
-            history = stm.get("history", [])
+        if os.path.exists(history_file):
+            with open(history_file, 'r', encoding='utf-8') as f:
+                history_data = json.load(f)
+            history = history_data.get("history", [])
         else:
             history = []
 
         # 提取Round 2和Round 3的属性（短记忆）
-        round_2_attrs = history[2].get("extracted_attrs", {}) if len(history) > 2 else {}
-        round_3_attrs = history[3].get("extracted_attrs", {}) if len(history) > 3 else {}
+        round_2_attrs = {}
+        round_3_attrs = {}
+
+        for entry in history:
+            if entry["round"] == 2:
+                round_2_attrs = entry.get("extracted_attrs", {})
+            elif entry["round"] == 3:
+                round_3_attrs = entry.get("extracted_attrs", {})
 
         # 提取Round 0-3的所有属性（长记忆）
-        history_attrs_list = [h.get("extracted_attrs", {}) for h in history[:4]]
+        history_attrs_list = []
+        for entry in history:
+            if entry["round"] < 4:  # 只取Round 0-3
+                history_attrs_list.append(entry.get("extracted_attrs", {}))
 
         # 计算STM分数（与Round 2和Round 3比较）
         stm_score = compute_stm_score_two_rounds(current_attrs, round_2_attrs, round_3_attrs)
@@ -368,145 +361,124 @@ def evaluate_memory_gate(userId, round_num, current_attrs, is_choice_right):
             "history_count": len(history)
         }
 
-def process_stm_and_update_memory(userId, extracted_attrs, new_self_intro):
+def save_stm_and_history(userId, extracted_attrs, round_num):
     """
-    改进版：分离当前记忆和LTM记忆的更新逻辑
+    保存当前轮次的STM和累积的History
 
-    返回: {
-        "current_updated": bool,  # 是否更新了当前记忆
-        "ltm_updated": bool,      # 是否更新了LTM
-        "decision_tag": str
-    }
+    参数:
+    - userId: 用户ID
+    - extracted_attrs: 当前轮次提取的属性
+    - round_num: 当前轮次（0-based）
     """
     from config import MEMORY_BASE_DIR
-    import time as time_module
     import json
     import os
+    import time as time_module
 
-    # 1. 加载STM
-    stm_file = f"{MEMORY_BASE_DIR}/stm/user_{userId}.json"
-    os.makedirs(os.path.dirname(stm_file), exist_ok=True)
+    # ========== 1. 保存STM（当前轮次，覆盖式）==========
+    stm_dir = f"{MEMORY_BASE_DIR}/stm"
+    os.makedirs(stm_dir, exist_ok=True)
 
-    if os.path.exists(stm_file):
-        with open(stm_file, 'r', encoding='utf-8') as f:
-            stm = json.load(f)
-    else:
-        stm = {"attributes": {}, "history": []}
-
-    # 2. 记录本次交互到history
-    stm["history"].append({
+    stm_file = f"{stm_dir}/user_{userId}.json"
+    stm_data = {
+        "user_id": userId,
+        "current_round": round_num,
         "timestamp": time_module.time(),
-        "round": len(stm["history"]),
+        "extracted_attrs": extracted_attrs
+    }
+
+    with open(stm_file, 'w', encoding='utf-8') as f:
+        json.dump(stm_data, f, ensure_ascii=False, indent=2)
+
+    print(f"✅ [STM] User {userId} Round {round_num} saved")
+
+    # ========== 2. 追加到History（累积式）==========
+    history_dir = f"{MEMORY_BASE_DIR}/stm_history"
+    os.makedirs(history_dir, exist_ok=True)
+
+    history_file = f"{history_dir}/user_{userId}.json"
+
+    # 加载或初始化History
+    if os.path.exists(history_file):
+        with open(history_file, 'r', encoding='utf-8') as f:
+            history_data = json.load(f)
+    else:
+        history_data = {
+            "user_id": userId,
+            "history": []
+        }
+
+    # 追加当前轮次
+    history_data["history"].append({
+        "round": round_num,
+        "timestamp": time_module.time(),
         "extracted_attrs": extracted_attrs
     })
 
-    # 3. 更新STM维度积分
-    for dim, detail in extracted_attrs.items():
-        if detail.get("polarity") == "positive":
-            if dim not in stm["attributes"]:
-                stm["attributes"][dim] = {
-                    "count": 0,
-                    "total_score": 0,
-                    "evidence_items": []
-                }
+    # 保存History
+    with open(history_file, 'w', encoding='utf-8') as f:
+        json.dump(history_data, f, ensure_ascii=False, indent=2)
 
-            stm["attributes"][dim]["count"] += 1
-            stm["attributes"][dim]["total_score"] += detail.get("score", 0)
-            stm["attributes"][dim]["evidence_items"].append(detail.get("item_name"))
+    print(f"✅ [History] User {userId} Round {round_num} appended to history")
 
-    # 4. 立即更新当前记忆（user/user.{userId}）
-    update_current_memory(userId, new_self_intro)
-    current_updated = True
+def generate_ltm_from_history(userId, min_occurrences=2):
+    """
+    从History文件中提取稳定属性，生成LTM prompt
 
-    # 5. 判断是否达到LTM固化阈值
-    LTM_THRESHOLD = 2  # 出现3次才固化到LTM
-    verified_dims = [dim for dim, data in stm["attributes"].items()
-                     if data["count"] >= LTM_THRESHOLD]
+    参数:
+    - userId: 用户ID
+    - min_occurrences: 最小出现次数（默认2，即至少出现3次）
 
-    ltm_updated = False
-    if verified_dims:
-        # 固化到LTM（user-ltm/user.{userId}）
-        update_ltm_memory(userId, new_self_intro)
-        ltm_updated = True
+    返回: 格式化的属性字典，用于prompt构建
+    """
+    from config import MEMORY_BASE_DIR
+    import json
+    import os
 
-        # 重置计数
-        for dim in verified_dims:
-            stm["attributes"][dim]["count"] = 0
-            stm["attributes"][dim]["evidence_items"] = []
+    history_file = f"{MEMORY_BASE_DIR}/stm_history/user_{userId}.json"
 
-        decision_tag = "UPDATED_TO_LTM"
-        print(f"✅ [LTM] User {userId} LTM updated (verified dims: {verified_dims})")
-    else:
-        decision_tag = "UPDATED_CURRENT_ONLY"
+    if not os.path.exists(history_file):
+        return None
 
-    # 6. 持久化STM
-    with open(stm_file, 'w', encoding='utf-8') as f:
-        json.dump(stm, f, ensure_ascii=False, indent=2)
+    # 加载History
+    with open(history_file, 'r', encoding='utf-8') as f:
+        history_data = json.load(f)
 
-    return {
-        "current_updated": current_updated,
-        "ltm_updated": ltm_updated,
-        "decision_tag": decision_tag
+    # 统计每个维度的正向属性出现次数
+    dimension_stats = {}
+
+    for entry in history_data["history"]:
+        for dim, detail in entry["extracted_attrs"].items():
+            if detail.get("polarity") == "positive":
+                if dim not in dimension_stats:
+                    dimension_stats[dim] = {
+                        "count": 0,
+                        "total_score": 0,
+                        "items": []
+                    }
+
+                dimension_stats[dim]["count"] += 1
+                dimension_stats[dim]["total_score"] += detail.get("score", 0)
+                dimension_stats[dim]["items"].append(detail.get("item_name"))
+
+    # 筛选出现次数 > min_occurrences 的维度
+    verified_dims = {
+        dim: stats for dim, stats in dimension_stats.items()
+        if stats["count"] >= min_occurrences  # > 2 表示至少3次
     }
 
-### 2.2 辅助函数
-
-def update_current_memory(userId, new_self_intro):
-    """更新用户记忆"""
-    responseText = new_self_intro.split("My updated self-introduction:")[-1].strip()
-
-    # ✅ 使用config中的路径
-    with open(f"{MEMORY_BASE_DIR}/user/user.{userId}", "w", encoding="utf-8") as file:
-        file.write(responseText)
-
-    with open(f"{MEMORY_BASE_DIR}/user-long/user.{userId}", "a", encoding="utf-8") as file:
-        file.write("\n=====\n")
-        file.write(responseText)
-
-
-def update_ltm_memory(userId, new_self_intro):
-    """
-    更新长期记忆（高质量基线）
-    """
-    from config import MEMORY_BASE_DIR
-    import os
-
-    ltm_file = f"{MEMORY_BASE_DIR}/user-ltm/user.{userId}"
-    os.makedirs(os.path.dirname(ltm_file), exist_ok=True)
-
-    with open(ltm_file, 'w', encoding='utf-8') as f:
-        f.write(new_self_intro)
-
-    print(f"✅ [LTM] User {userId} LTM memory updated")
-
-
-def load_user_memory(userId):
-    """
-    加载用户当前记忆
-    """
-    from config import MEMORY_BASE_DIR
-    import os
-
-    current_file = f"{MEMORY_BASE_DIR}/user/user.{userId}"
-
-    if os.path.exists(current_file):
-        with open(current_file, 'r', encoding='utf-8') as f:
-            return f.read().strip()
-    else:
-        return "I am a new user."
-
-
-def load_ltm_memory(userId):
-    """
-    加载LTM记忆（如果存在）
-    """
-    from config import MEMORY_BASE_DIR
-    import os
-
-    ltm_file = f"{MEMORY_BASE_DIR}/user-ltm/user.{userId}"
-
-    if os.path.exists(ltm_file):
-        with open(ltm_file, 'r', encoding='utf-8') as f:
-            return f.read().strip()
-    else:
+    if not verified_dims:
         return None
+
+    # 返回格式化的属性字典（用于prompt构建）
+    ltm_attributes = {}
+    for dim, stats in verified_dims.items():
+        avg_score = stats["total_score"] / stats["count"]
+        ltm_attributes[dim] = {
+            "count": stats["count"],
+            "avg_score": avg_score,
+            "items": stats["items"]
+        }
+
+    return ltm_attributes
+
