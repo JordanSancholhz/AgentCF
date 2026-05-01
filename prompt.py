@@ -283,17 +283,53 @@ def item_prompt_template_true_with_attr(user_description, list_of_item_descripti
 # ============================================================================
 def user_prompt_template_with_attr_ltm(list_of_item_description, pos_item_title,
                                        neg_item_title, system_reason,
-                                       attribute_dimensions, ltm_memory=None, stm_memory=None):
+                                       attribute_dimensions, ltm_attributes=None, stm_attributes=None):
     """
     用户prompt - 选择错误 - 包含属性分析 + LTM + STM
-    """
-    ltm_hint = ""
-    if ltm_memory:
-        ltm_hint = f"\n\nNote: Your core long-term preferences (from all previous rounds) are: '{ltm_memory}'."
 
-    stm_hint = ""
-    if stm_memory:
-        stm_hint = f"\n\nRecent trends: In the last two rounds, you showed preferences for: '{stm_memory}'."
+    参数:
+    - ltm_attributes: LTM属性字典 {dim: {"count": int, "avg_score": float, "items": [...]}}
+    - stm_attributes: STM属性列表 [{"round": 3, "attributes": {...}}, {"round": 2, "attributes": {...}}]
+    """
+
+    # 构建LTM提示（基于属性）
+    ltm_prompt = ""
+    if ltm_attributes:
+        ltm_parts = []
+        for dim, stats in ltm_attributes.items():
+            ltm_parts.append(
+                f"  - {dim}: consistently preferred (appeared {stats['count']} times, "
+                f"avg importance: {stats['avg_score']:.1f}/5)"
+            )
+
+        ltm_prompt = f"""
+
+Your core long-term stable attributes (verified through Round 0-3):
+{chr(10).join(ltm_parts)}
+
+Note: These attributes have been validated at least 3 times in your interaction history, representing your stable and reliable preferences."""
+
+    # 构建STM提示（基于属性）
+    stm_prompt = ""
+    if stm_attributes:
+        stm_parts = []
+        for idx, entry in enumerate(stm_attributes):
+            round_num = entry["round"]
+            attrs = entry["attributes"]
+
+            # 格式化属性
+            attr_lines = []
+            for dim, detail in attrs.items():
+                attr_lines.append(
+                    f"    - {dim}: {detail['item_name']} | {detail['polarity']} | score {detail['score']}"
+                )
+
+            if idx == 0:  # 最近一轮
+                stm_parts.append(f"\nYour past attribute preferences (Round {round_num}):\n" + "\n".join(attr_lines))
+            else:  # 倒数第二轮
+                stm_parts.append(f"\nYour second past attribute preferences (Round {round_num}):\n" + "\n".join(attr_lines))
+
+        stm_prompt = "\n".join(stm_parts)
 
     return f"""Recently, you considered choosing one item from two candidates. The features of these items are:
 {list_of_item_description}.
@@ -302,14 +338,19 @@ After comparing based on your preferences, you chose '{neg_item_title}' and reje
 '{system_reason}'.
 
 However, after encountering these items, you realized you prefer '{pos_item_title}' and don't like '{neg_item_title}'.
-This indicates an incorrect choice, and your previous judgment about your preferences was mistaken. Your task now is to extract the attribute-level rationale for this correction and update your self-introduction.{ltm_hint}{stm_hint}
+This indicates an incorrect choice, and your previous judgment about your preferences was mistaken.{ltm_prompt}{stm_prompt}
 
-Follow these steps:
-1. Attribute Analysis (Silver Rationale): From these dimensions ({attribute_dimensions}), identify 1 to 3 key attributes that caused this misconception. For each, specify which item has the trait, its polarity (positive/negative to your true preference), and its importance score (1-5).
-2. Consider your long-term stable preferences (if provided) and recent trends (if provided) when analyzing.
-3. Analyze misconceptions in your previous judgment and correct them based on step 1 and 2.
+Your task now is to update your self-introduction with your new preferences and dislikes, considering:
+1. Your core long-term stable attributes (if provided above) - these dimensions have been consistently preferred across multiple interactions
+2. Your recent attribute preferences (if provided above) - these show how your taste has evolved in recent rounds
+3. The attribute-level analysis from the current interaction
+
+Please follow these steps:
+1. Attribute Analysis (Silver Rationale): From these dimensions ({attribute_dimensions}), identify 1 to 3 key attributes that explain why you actually prefer '{pos_item_title}'. For each attribute, specify which item has it, its polarity (positive/negative), and importance score (1-5).
+2. Reflect on your long-term stable attributes and recent attribute trends - do they align with this new preference? If there's a conflict, prioritize the current interaction but acknowledge the shift.
+3. Analyze misconceptions in your previous judgment and correct them.
 4. Identify new preferences from '{pos_item_title}' and dislikes from '{neg_item_title}'.
-5. Summarize your past preferences, merging them with new insights and removing conflicting parts.
+5. Summarize your past preferences (both long-term and recent), merging them with new insights and removing conflicting parts.
 6. Update your self-introduction, starting with new preferences, then summarizing past ones, followed by dislikes.
 
 Important notes:
@@ -320,23 +361,60 @@ Attribute Rationale:
 My updated self-introduction: [Your updated self-introduction here].
 2. Keep the self-introduction under 150 words.
 3. Be concise and clear.
-4. Describe only the features of items you prefer or dislike, without mentioning your thought process in the self-introduction.
-5. Your self-introduction should be specific and personalized; avoid generic preferences."""
+4. Describe only the features of items you prefer or dislike, without mentioning your thought process.
+5. Your self-introduction should be specific and personalized; avoid generic preferences.
+6. When integrating long-term and short-term attributes, maintain consistency but allow for natural preference evolution."""
 
 
 def user_prompt_template_true_with_attr_ltm(list_of_item_description, pos_item_title,
                                             neg_item_title, system_reason,
-                                            attribute_dimensions, ltm_memory=None, stm_memory=None):
+                                            attribute_dimensions, ltm_attributes=None, stm_attributes=None):
     """
     用户prompt - 选择正确 - 包含属性分析 + LTM + STM
-    """
-    ltm_hint = ""
-    if ltm_memory:
-        ltm_hint = f"\n\nNote: Your core long-term preferences (from all previous rounds) are: '{ltm_memory}'."
 
-    stm_hint = ""
-    if stm_memory:
-        stm_hint = f"\n\nRecent trends: In the last two rounds, you showed preferences for: '{stm_memory}'."
+    参数:
+    - ltm_attributes: LTM属性字典 {dim: {"count": int, "avg_score": float, "items": [...]}}
+    - stm_attributes: STM属性列表 [{"round": 3, "attributes": {...}}, {"round": 2, "attributes": {...}}]
+    """
+
+    # 构建LTM提示（基于属性）
+    ltm_prompt = ""
+    if ltm_attributes:
+        ltm_parts = []
+        for dim, stats in ltm_attributes.items():
+            ltm_parts.append(
+                f"  - {dim}: consistently preferred (appeared {stats['count']} times, "
+                f"avg importance: {stats['avg_score']:.1f}/5)"
+            )
+
+        ltm_prompt = f"""
+
+Your core long-term stable attributes (verified through Round 0-3):
+{chr(10).join(ltm_parts)}
+
+Note: These attributes have been validated at least 3 times in your interaction history, representing your stable and reliable preferences."""
+
+    # 构建STM提示（基于属性）
+    stm_prompt = ""
+    if stm_attributes:
+        stm_parts = []
+        for idx, entry in enumerate(stm_attributes):
+            round_num = entry["round"]
+            attrs = entry["attributes"]
+
+            # 格式化属性
+            attr_lines = []
+            for dim, detail in attrs.items():
+                attr_lines.append(
+                    f"    - {dim}: {detail['item_name']} | {detail['polarity']} | score {detail['score']}"
+                )
+
+            if idx == 0:  # 最近一轮
+                stm_parts.append(f"\nYour past attribute preferences (Round {round_num}):\n" + "\n".join(attr_lines))
+            else:  # 倒数第二轮
+                stm_parts.append(f"\nYour second past attribute preferences (Round {round_num}):\n" + "\n".join(attr_lines))
+
+        stm_prompt = "\n".join(stm_parts)
 
     return f"""Recently, you considered choosing one item from two candidates. The features of these items are:
 {list_of_item_description}.
@@ -345,13 +423,17 @@ After comparing based on your preferences, you selected '{pos_item_title}' and r
 '{system_reason}'.
 
 After encountering these items, you found that you really like '{pos_item_title}' and dislike '{neg_item_title}'.
-This indicates you made a correct choice, and your judgment about your preferences was accurate.
-Your task now is to extract the attribute-level rationale confirming your choice and update your self-introduction.{ltm_hint}{stm_hint}
+This indicates you made a correct choice, and your judgment about your preferences was accurate.{ltm_prompt}{stm_prompt}
+
+Your task now is to update your self-introduction with your confirmed preferences and dislikes, considering:
+1. Your core long-term stable attributes (if provided above) - these dimensions have been consistently preferred across multiple interactions
+2. Your recent attribute preferences (if provided above) - these show how your taste has evolved in recent rounds
+3. The attribute-level analysis from the current interaction
 
 Please follow these steps:
 1. Attribute Analysis (Silver Rationale): From these dimensions ({attribute_dimensions}), identify 1 to 3 key attributes that drove this successful match. For each, specify which item has the trait, its polarity (positive/negative to your preference), and its importance score (1-5).
-2. Consider your long-term stable preferences (if provided) and recent trends (if provided) when analyzing.
-3. Analyze your judgment about your preferences and dislikes from your explanation based on step 1 and 2.
+2. Consider your long-term stable attributes and recent attribute trends - do they align with this confirmed preference? Reinforce consistent patterns.
+3. Analyze your judgment about your preferences and dislikes from your explanation.
 4. Identify new preferences based on '{pos_item_title}' and dislikes based on '{neg_item_title}'.
 5. Summarize your past preferences and dislikes from your previous self-introduction, combining them with new insights while removing conflicting parts.
 6. Update your self-introduction, starting with your new preferences, then summarizing past ones, followed by your dislikes.
@@ -365,25 +447,62 @@ My updated self-introduction: [Your updated self-introduction here].
 2. Keep the self-introduction under 150 words.
 3. Be concise and clear.
 4. Describe only the features of items you prefer or dislike, without mentioning your thought process in the self-introduction.
-5. Your self-introduction should be specific and personalized; avoid generic preferences."""
+5. Your self-introduction should be specific and personalized; avoid generic preferences.
+6. When integrating long-term and short-term attributes, maintain consistency and reinforce stable patterns."""
 
 
 def item_prompt_template_with_attr_ltm(user_description, list_of_item_description,
                                        pos_item_title, neg_item_title, system_reason,
-                                       attribute_dimensions, ltm_memory=None, stm_memory=None):
+                                       attribute_dimensions, ltm_attributes=None, stm_attributes=None):
     """
     物品prompt - 选择错误 - 包含属性分析 + LTM + STM
-    """
-    ltm_hint = ""
-    if ltm_memory:
-        ltm_hint = f" The user's core long-term preferences are: '{ltm_memory}'."
 
-    stm_hint = ""
-    if stm_memory:
-        stm_hint = f" Recent trends: '{stm_memory}'."
+    参数:
+    - ltm_attributes: LTM属性字典 {dim: {"count": int, "avg_score": float, "items": [...]}}
+    - stm_attributes: STM属性列表 [{"round": 3, "attributes": {...}}, {"round": 2, "attributes": {...}}]
+    """
+
+    # 构建LTM提示（基于属性）
+    ltm_prompt = ""
+    if ltm_attributes:
+        ltm_parts = []
+        for dim, stats in ltm_attributes.items():
+            ltm_parts.append(
+                f"  - {dim}: consistently preferred (appeared {stats['count']} times, "
+                f"avg importance: {stats['avg_score']:.1f}/5)"
+            )
+
+        ltm_prompt = f"""
+
+User's core long-term stable attributes (verified through Round 0-3):
+{chr(10).join(ltm_parts)}
+
+Note: These attributes have been validated at least 3 times, representing stable preferences."""
+
+    # 构建STM提示（基于属性）
+    stm_prompt = ""
+    if stm_attributes:
+        stm_parts = []
+        for idx, entry in enumerate(stm_attributes):
+            round_num = entry["round"]
+            attrs = entry["attributes"]
+
+            # 格式化属性
+            attr_lines = []
+            for dim, detail in attrs.items():
+                attr_lines.append(
+                    f"    - {dim}: {detail['item_name']} | {detail['polarity']} | score {detail['score']}"
+                )
+
+            if idx == 0:  # 最近一轮
+                stm_parts.append(f"\nUser's past attribute preferences (Round {round_num}):\n" + "\n".join(attr_lines))
+            else:  # 倒数第二轮
+                stm_parts.append(f"\nUser's second past attribute preferences (Round {round_num}):\n" + "\n".join(attr_lines))
+
+        stm_prompt = "\n".join(stm_parts)
 
     return f"""You are an item description updater. A user with the following preferences interacted with two items:
-User preferences: {user_description}.{ltm_hint}{stm_hint}
+User preferences: {user_description}.{ltm_prompt}{stm_prompt}
 
 Items:
 {list_of_item_description}
@@ -392,41 +511,76 @@ The user initially chose '{neg_item_title}' over '{pos_item_title}', reasoning: 
 However, after experiencing both items, the user realized they actually prefer '{pos_item_title}' and dislike '{neg_item_title}'.
 
 Your task is to update the descriptions of both items to better reflect the user's true preferences, considering:
-1. The attribute-level analysis from these dimensions: {attribute_dimensions}
-2. The user's long-term stable preferences (if provided)
-3. The user's recent preference trends (if provided)
+1. The user's core long-term stable attributes (if provided above) - dimensions consistently preferred across multiple interactions
+2. The user's recent attribute preferences (if provided above) - how their taste has evolved in recent rounds
+3. The attribute-level analysis from these dimensions: {attribute_dimensions}
 
 Please follow these steps:
 1. Attribute Analysis: Identify 1-3 key attributes from ({attribute_dimensions}) that explain why the user prefers '{pos_item_title}'. For each attribute, specify which item has it, its polarity (positive/negative), and importance score (1-5).
-2. For '{pos_item_title}': Emphasize features that align with the user's true preferences (both long-term and recent trends).
+2. For '{pos_item_title}': Emphasize features that align with the user's true preferences (both long-term stable attributes and recent attribute trends).
 3. For '{neg_item_title}': Highlight aspects that conflict with the user's preferences.
-4. Keep descriptions concise and focused on attributes relevant to this user.
+4. Keep descriptions concise and focused on attributes that matter to this user.
 
 Output format:
 Attribute Rationale:
 - [attribute_1]: [item_name] | [positive/negative] | [score 1-5]
 - [attribute_2]: [item_name] | [positive/negative] | [score 1-5]
-
-Updated description for '{pos_item_title}': [description]
-Updated description for '{neg_item_title}': [description]"""
+The updated description of the first item is: [Updated description for '{neg_item_title}']
+The updated description of the second item is: [Updated description for '{pos_item_title}']"""
 
 
 def item_prompt_template_true_with_attr_ltm(user_description, list_of_item_description,
                                             pos_item_title, neg_item_title,
-                                            attribute_dimensions, ltm_memory=None, stm_memory=None):
+                                            attribute_dimensions, ltm_attributes=None, stm_attributes=None):
     """
     物品prompt - 选择正确 - 包含属性分析 + LTM + STM
-    """
-    ltm_hint = ""
-    if ltm_memory:
-        ltm_hint = f" The user's core long-term preferences are: '{ltm_memory}'."
 
-    stm_hint = ""
-    if stm_memory:
-        stm_hint = f" Recent trends: '{stm_memory}'."
+    参数:
+    - ltm_attributes: LTM属性字典 {dim: {"count": int, "avg_score": float, "items": [...]}}
+    - stm_attributes: STM属性列表 [{"round": 3, "attributes": {...}}, {"round": 2, "attributes": {...}}]
+    """
+
+    # 构建LTM提示（基于属性）
+    ltm_prompt = ""
+    if ltm_attributes:
+        ltm_parts = []
+        for dim, stats in ltm_attributes.items():
+            ltm_parts.append(
+                f"  - {dim}: consistently preferred (appeared {stats['count']} times, "
+                f"avg importance: {stats['avg_score']:.1f}/5)"
+            )
+
+        ltm_prompt = f"""
+
+User's core long-term stable attributes (verified through Round 0-3):
+{chr(10).join(ltm_parts)}
+
+Note: These attributes have been validated at least 3 times, representing stable preferences."""
+
+    # 构建STM提示（基于属性）
+    stm_prompt = ""
+    if stm_attributes:
+        stm_parts = []
+        for idx, entry in enumerate(stm_attributes):
+            round_num = entry["round"]
+            attrs = entry["attributes"]
+
+            # 格式化属性
+            attr_lines = []
+            for dim, detail in attrs.items():
+                attr_lines.append(
+                    f"    - {dim}: {detail['item_name']} | {detail['polarity']} | score {detail['score']}"
+                )
+
+            if idx == 0:  # 最近一轮
+                stm_parts.append(f"\nUser's past attribute preferences (Round {round_num}):\n" + "\n".join(attr_lines))
+            else:  # 倒数第二轮
+                stm_parts.append(f"\nUser's second past attribute preferences (Round {round_num}):\n" + "\n".join(attr_lines))
+
+        stm_prompt = "\n".join(stm_parts)
 
     return f"""You are an item description updater. A user with the following preferences interacted with two items:
-User preferences: {user_description}.{ltm_hint}{stm_hint}
+User preferences: {user_description}.{ltm_prompt}{stm_prompt}
 
 Items:
 {list_of_item_description}
@@ -435,20 +589,19 @@ The user chose '{pos_item_title}' over '{neg_item_title}', and after experiencin
 They really like '{pos_item_title}' and dislike '{neg_item_title}'.
 
 Your task is to update the descriptions of both items to better reflect the user's preferences, considering:
-1. The attribute-level analysis from these dimensions: {attribute_dimensions}
-2. The user's long-term stable preferences (if provided)
-3. The user's recent preference trends (if provided)
+1. The user's core long-term stable attributes (if provided above) - dimensions consistently preferred across multiple interactions
+2. The user's recent attribute preferences (if provided above) - how their taste has evolved in recent rounds
+3. The attribute-level analysis from these dimensions: {attribute_dimensions}
 
 Please follow these steps:
 1. Attribute Analysis: Identify 1-3 key attributes from ({attribute_dimensions}) that explain why the user prefers '{pos_item_title}'. For each attribute, specify which item has it, its polarity (positive/negative), and importance score (1-5).
-2. For '{pos_item_title}': Emphasize features that align with the user's preferences (both long-term and recent trends).
+2. For '{pos_item_title}': Emphasize features that align with the user's preferences (both long-term stable attributes and recent attribute trends).
 3. For '{neg_item_title}': Highlight aspects that the user dislikes.
-4. Keep descriptions concise and focused on attributes relevant to this user.
+4. Keep descriptions concise and focused on attributes that matter to this user.
 
 Output format:
 Attribute Rationale:
 - [attribute_1]: [item_name] | [positive/negative] | [score 1-5]
 - [attribute_2]: [item_name] | [positive/negative] | [score 1-5]
-
-Updated description for '{pos_item_title}': [description]
-Updated description for '{neg_item_title}': [description]"""
+The updated description of the first item is: [Updated description for '{neg_item_title}']
+The updated description of the second item is: [Updated description for '{pos_item_title}']"""
