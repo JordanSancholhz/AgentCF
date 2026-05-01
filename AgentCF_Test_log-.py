@@ -191,7 +191,7 @@ async def get_llm_ranking_async(user_id, candidate_list, cdt_item_title_list, it
         last_matched_titles = []
         last_unmatched_lines = []
         
-        for retry_idx in range(2):  # 只重试2次
+        for retry_idx in range(5):  # 只重试2次
             llm_output = await async_client.call_api_async(system_prompt, model)
             if llm_output is None:
                 await asyncio.sleep(0.2)
@@ -504,7 +504,7 @@ async def main_async():
         
         # ✅ 批次级重试（最多3轮，轻量）
         retry_count = 0
-        while failed_records and retry_count < 5:
+        while failed_records and retry_count < 20:
             retry_count += 1
             print(f"\n[WARN] 批次{batch_idx+1}有{len(failed_records)}个失败，第{retry_count}次重试...")
             await asyncio.sleep(0.5)
