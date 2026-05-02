@@ -90,30 +90,35 @@ TRAIN_CONFIGS = {
     }
 }
 
-# ============= 评估模式配置 =============
+# ============= 获取当前配置 =============
+# ============= 实验后缀配置（用于区分不同实验）=============
+import os
+EXP_SUFFIX = os.environ.get('EXP_SUFFIX', '')  # 从环境变量读取实验后缀
+
+# ============= 评估模式配置（加入 EXP_SUFFIX）=============
 EVAL_CONFIGS = {
     "basic": {
-        "method_name": f"AgentCF_{DATASET_DIR}_basic",  # ✅ 修改：使用 DATASET_DIR
-        "memory_dir": f"memory/AgentCF_{DATASET_DIR}_basic",  # ✅ 修改：使用 DATASET_DIR
+        "method_name": f"AgentCF_{DATASET_DIR}_basic",
+        "memory_dir": f"memory{EXP_SUFFIX}/AgentCF_{DATASET_DIR}_basic",
         "use_embedding": False,
         "use_llm": True
     },
     "description": {
-        "method_name": f"AgentCF_{DATASET_DIR}_description",  # ✅ 修改：使用 DATASET_DIR
-        "memory_dir": f"memory/AgentCF_{DATASET_DIR}_description",  # ✅ 修改：使用 DATASET_DIR
+        "method_name": f"AgentCF_{DATASET_DIR}_description",
+        "memory_dir": f"memory{EXP_SUFFIX}/AgentCF_{DATASET_DIR}_description",
         "use_embedding": False,
         "use_llm": True
     },
     "embedding": {
-        "method_name": f"AgentCF_{DATASET_DIR}_embedding",  # ✅ 修改：使用 DATASET_DIR
-        "embedding_dir": f"dataset/embeddings/{DATASET_DIR}",  # ✅ 修改：使用 DATASET_DIR
+        "method_name": f"AgentCF_{DATASET_DIR}_embedding",
+        "embedding_dir": f"dataset/embeddings/{DATASET_DIR}",
         "use_embedding": True,
         "use_llm": False
     },
     "rrf": {
-        "method_name": f"AgentCF_{DATASET_DIR}_rrf",  # ✅ 修改：使用 DATASET_DIR
-        "memory_dir": f"memory/AgentCF_{DATASET_DIR}_description",  # ✅ 修改：使用 DATASET_DIR
-        "embedding_dir": f"dataset/embeddings/{DATASET_DIR}",  # ✅ 修改：使用 DATASET_DIR
+        "method_name": f"AgentCF_{DATASET_DIR}_rrf",
+        "memory_dir": f"memory{EXP_SUFFIX}/AgentCF_{DATASET_DIR}_description",
+        "embedding_dir": f"dataset/embeddings/{DATASET_DIR}",
         "use_embedding": True,
         "use_llm": True,
         "fusion_method": "RRF",
@@ -121,7 +126,6 @@ EVAL_CONFIGS = {
     }
 }
 
-# ============= 获取当前配置 =============
 train_config = TRAIN_CONFIGS[TRAIN_MODE]
 eval_config = EVAL_CONFIGS[EVAL_MODE]
 
@@ -131,10 +135,10 @@ eval_method_name = eval_config['method_name']
 # 训练相关配置（仅用于训练脚本）
 exp_name = train_config["memory_name"]
 initial_memory_dir = train_config["initial_dir"]
-MEMORY_BASE_DIR = f"memory/{exp_name}"
+MEMORY_BASE_DIR = f"memory{EXP_SUFFIX}/{exp_name}"
 
-# ✅ 日志输出目录（使用 DATASET_DIR）
-LOG_DIR = f"log/{DATASET_DIR}"
+# ✅ 日志输出目录（使用 DATASET_DIR + EXP_SUFFIX）
+LOG_DIR = f"log{EXP_SUFFIX}/{DATASET_DIR}"
 
 # ============= 模型配置 =============
 candidate_num = 10
@@ -149,7 +153,7 @@ save_ranking_results = True
 # 断点续训配置
 
 # ============= 断点续训配置 =============
-CHECKPOINT_FILE = f"log/{DATASET_DIR}/checkpoint.json"
+CHECKPOINT_FILE = f"log{EXP_SUFFIX}/{DATASET_DIR}/checkpoint.json"
 
 # ============= 异步配置 =============
 async_training_batch_size = 4
@@ -210,10 +214,10 @@ ablation_train_config = ABLATION_TRAIN_CONFIGS[ablation_config_key]
 ablation_exp_name = ablation_train_config["memory_name"]
 ablation_initial_memory_dir = ablation_train_config["initial_dir"]
 ABLATION_MEMORY_DIR = f"memory/{ablation_exp_name}"
-ABLATION_LOG_DIR = f"log_ablation/{DATASET_DIR}"
+ABLATION_LOG_DIR = f"log_ablation{EXP_SUFFIX}/{DATASET_DIR}"
 
 
-ABLATION_LOG_DIR = f"log_ablation/{DATASET_DIR}"
+ABLATION_LOG_DIR = f"log_ablation{EXP_SUFFIX}/{DATASET_DIR}"
 
 # ✅ 新增：消融实验评估配置
 ABLATION_EVAL_CONFIGS = {
@@ -266,11 +270,6 @@ LONG_MEMORY_LOG_ROOT = "log_long_eval"
 # ============= 属性级别监督配置 =============创新点1
 ENABLE_ATTRIBUTE_GUIDANCE = True  # 是否启用属性级别引导
 ENABLE_SEPARATE_LTM = True
-# ATTRIBUTE_DIMENSIONS = [
-#     "style", "material", "price", "genre",
-#     "functionality", "brand", "color", "quality"
-# ]  # 属性维度，可根据数据集调整
-# ATTRIBUTE_POLARITY = ["positive", "negative"]  # 属性极性
 
 
 # ========== UAMG 门控配置（创新点2）==========
