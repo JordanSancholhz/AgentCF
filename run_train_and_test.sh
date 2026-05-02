@@ -1,52 +1,130 @@
 #!/bin/bash
 
 # ================================================================================
-# 运行训练和测试脚本
+# 运行训练和测试脚本 - 两个实验配置（通用版）
 # 用法: bash run_train_and_test.sh
 # ================================================================================
 
 set -e  # 遇到错误立即退出
 
+# ===================== 自动检测 Python（修正版）=====================
+
+# 优先使用 conda 环境 python（如果存在）
+if [ -n "$CONDA_PREFIX" ]; then
+    PYTHON_CMD="$CONDA_PREFIX/bin/python"
+else
+    # fallback
+    if command -v python &> /dev/null
+    then
+        PYTHON_CMD=python
+    elif command -v python3 &> /dev/null
+    then
+        PYTHON_CMD=python3
+    else
+        echo "❌ Python not found."
+        exit 1
+    fi
+fi
+
+echo "Using Python: $PYTHON_CMD"
+
 echo "================================================================================"
-echo "开始运行 AgentCF 训练和测试流程"
+echo "开始运行 AgentCF 训练和测试流程 - 两个实验"
 echo "================================================================================"
 
 # 记录开始时间
-START_TIME=$(date +%s)
+TOTAL_START_TIME=$(date +%s)
 
-# ========== 步骤1: 运行训练 ==========
+# ================================================================================
+# 实验1: ENABLE_ATTRIBUTE_GUIDANCE=True, ENABLE_MEMORY_GATING=False
+# ================================================================================
 echo ""
-echo ">>> [步骤 1/2] 运行训练脚本: AgentCF_train_check.py"
+echo "################################################################################"
+echo "# 实验1: ENABLE_ATTRIBUTE_GUIDANCE=True, ENABLE_MEMORY_GATING=False"
+echo "################################################################################"
+
+export ENABLE_ATTRIBUTE_GUIDANCE=True
+export ENABLE_MEMORY_GATING=False
+export EXP_SUFFIX="_attr_only"
+
+EXP1_START_TIME=$(date +%s)
+
+# ========== 实验1 - 步骤1: 训练 ==========
+echo ""
+echo ">>> [实验1 - 步骤 1/2] 运行训练脚本"
 echo "--------------------------------------------------------------------------------"
 
-python AgentCF_train_check.py
+$PYTHON_CMD AgentCF_train_check.py
 
-if [ $? -eq 0 ]; then
-    echo "✅ 训练完成"
-else
-    echo "❌ 训练失败，退出"
-    exit 1
-fi
+echo "✅ 实验1 训练完成"
 
-# ========== 步骤2: 运行测试 ==========
+# ========== 实验1 - 步骤2: 测试 ==========
 echo ""
-echo ">>> [步骤 2/2] 运行测试脚本: AgentCF_Test_log-.py"
+echo ">>> [实验1 - 步骤 2/2] 运行测试脚本"
 echo "--------------------------------------------------------------------------------"
 
-python AgentCF_Test_log-.py
+$PYTHON_CMD AgentCF_Test_log-.py
 
-if [ $? -eq 0 ]; then
-    echo "✅ 测试完成"
-else
-    echo "❌ 测试失败，退出"
-    exit 1
-fi
+echo "✅ 实验1 测试完成"
 
-# ========== 完成 ==========
-END_TIME=$(date +%s)
-ELAPSED=$((END_TIME - START_TIME))
+EXP1_END_TIME=$(date +%s)
+EXP1_ELAPSED=$((EXP1_END_TIME - EXP1_START_TIME))
 
 echo ""
 echo "================================================================================"
-echo "✅ 全部完成！总耗时: ${ELAPSED} 秒"
+echo "✅ 实验1 完成！耗时: ${EXP1_ELAPSED} 秒"
 echo "================================================================================"
+
+# ================================================================================
+# 实验2: ENABLE_ATTRIBUTE_GUIDANCE=True, ENABLE_MEMORY_GATING=True
+# ================================================================================
+echo ""
+echo "################################################################################"
+echo "# 实验2: ENABLE_ATTRIBUTE_GUIDANCE=True, ENABLE_MEMORY_GATING=True"
+echo "################################################################################"
+
+export ENABLE_ATTRIBUTE_GUIDANCE=True
+export ENABLE_MEMORY_GATING=True
+export EXP_SUFFIX="_attr_gate"
+
+EXP2_START_TIME=$(date +%s)
+
+# ========== 实验2 - 步骤1: 训练 ==========
+echo ""
+echo ">>> [实验2 - 步骤 1/2] 运行训练脚本"
+echo "--------------------------------------------------------------------------------"
+
+$PYTHON_CMD AgentCF_train_check.py
+
+echo "✅ 实验2 训练完成"
+
+# ========== 实验2 - 步骤2: 测试 ==========
+echo ""
+echo ">>> [实验2 - 步骤 2/2] 运行测试脚本"
+echo "--------------------------------------------------------------------------------"
+
+$PYTHON_CMD AgentCF_Test_log-.py
+
+echo "✅ 实验2 测试完成"
+
+EXP2_END_TIME=$(date +%s)
+EXP2_ELAPSED=$((EXP2_END_TIME - EXP2_START_TIME))
+
+echo ""
+echo "================================================================================"
+echo "✅ 实验2 完成！耗时: ${EXP2_ELAPSED} 秒"
+echo "================================================================================"
+
+# ================================================================================
+# 全部完成
+# ================================================================================
+TOTAL_END_TIME=$(date +%s)
+TOTAL_ELAPSED=$((TOTAL_END_TIME - TOTAL_START_TIME))
+
+echo ""
+echo "################################################################################"
+echo "✅ 全部实验完成！"
+echo "   - 实验1 耗时: ${EXP1_ELAPSED} 秒"
+echo "   - 实验2 耗时: ${EXP2_ELAPSED} 秒"
+echo "   - 总耗时: ${TOTAL_ELAPSED} 秒"
+echo "################################################################################"
